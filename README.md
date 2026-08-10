@@ -11,6 +11,12 @@ script extender is installed, IsaacFPS automatically upgrades itself (native sou
 hook, ImGui performance dashboard, real console commands, nanosecond timing). Without
 it, everything still works. See [below](#repentogon-integration-optional).
 
+**Native layer (experimental)** — for when Lua-level and option-level optimizations
+aren't enough, `native/` contains a non-mod component that runs *inside the game
+process* using the same technique REPENTOGON does (DLL injection + signature scanning +
+inline hooks). It adaptively skips entity shadows while the game is lagging. See
+[native/README.md](native/README.md) and [docs/NATIVE_PATH.md](docs/NATIVE_PATH.md).
+
 ```
 [IsaacFPS] v1.0.0 loaded. Type fpshelp() in the debug console.
 ```
@@ -169,14 +175,24 @@ Other API: `IsaacFPS.AddUpdate(fn, interval)` (logic, runs with game updates),
 metadata.xml                     Repentance mod metadata
 resources/scripts/main.lua       loader + frame loops
 resources/scripts/isaacfps/      modules (config, gc, audio, overlay, repentogon, ...)
-tools/smoketest.py               dev-only: runs the mod against a stubbed Isaac API
+native/                          native layer: injected hook DLL + injector
+  dist/                          prebuilt isaacfps_native.dll + isaacfps_injector.exe
+  src/                           sigscan / adaptive controller / hooks / injector
+  third_party/minhook/           vendored MinHook (MIT)
+tools/smoketest.py               dev-only: runs the Lua mod against a stubbed Isaac API
+tools/booster/                   dev-only: external OS/config-level booster (Python)
+docs/NATIVE_PATH.md              technical writeup of the native approach
 ```
 
-### Dev: running the smoke test
+### Dev: running the tests
 
 ```bash
+# Lua mod: 95 assertions, two scenarios (vanilla + REPENTOGON)
 pip install lupa
-python3 tools/smoketest.py     # 95 assertions, two scenarios (vanilla + REPENTOGON)
+python3 tools/smoketest.py
+
+# Native layer: 33 C unit tests + cross-compilation of the DLL/EXE
+cd native && ./build.sh        # needs zig, or: pip install ziglang
 ```
 
 ## License

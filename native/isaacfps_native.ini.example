@@ -1,0 +1,26 @@
+# IsaacFPS native layer configuration.
+# Copy to isaacfps_native.ini next to isaacfps_native.dll.
+
+# Master switch. 0 = the DLL attaches and does nothing.
+enabled=1
+
+# Shadow skipping mode:
+#   adaptive - skip entity shadows only while frame time says the game is
+#              lagging; restore them automatically when headroom returns.
+#              (default, recommended)
+#   always   - entity shadows are always skipped (maximum FPS)
+#   never    - hook stays installed but never skips (measurement only)
+shadows=adaptive
+
+# Adaptive thresholds (frames per second).
+# Lagging  = smoothed frame time stays above 1000/target_fps
+# Headroom = smoothed frame time stays below 1000/recover_fps
+target_fps=55
+recover_fps=70
+
+# What to do when frame measurement is unavailable (REPENTOGON present hooks
+# Game::Render itself, so IsaacFPS defers to it): always | never
+adaptive_fallback=never
+
+# Write isaacfps_native.log next to the DLL.
+log=1
