@@ -8,6 +8,7 @@
 
 #include "../src/sigscan.h"
 #include "../src/adaptive.h"
+#include "../src/budget.h"
 #include "../src/config.h"
 
 static int g_pass = 0, g_fail = 0;
@@ -119,6 +120,47 @@ static void test_adaptive(void)
     CHECK("lagging 30Hz ticks trigger shed", a.shadows_off == 1);
 }
 
+/* ------------------------------- budget ---------------------------------- */
+
+static void test_budget(void)
+{
+    IfpsBudget b;
+    int i;
+
+    printf("== budget accounting ==\n");
+    ifps_budget_init(&b);
+    CHECK("empty share is -1", ifps_budget_update_share(&b) < 0);
+
+    /* render-bound profile: 25ms frames, only 5ms inside the measured call */
+    for (i = 0; i < 60; i++) ifps_budget_sample(&b, 25.0f, 5.0f);
+    CHECK("frame ema converges", b.frame_ema_ms > 24.0f && b.frame_ema_ms < 26.0f);
+    CHECK("inside ema converges", b.update_ema_ms > 4.0f && b.update_ema_ms < 6.0f);
+    {
+        float share = ifps_budget_update_share(&b);
+        CHECK("render-bound share ~20%", share > 0.15f && share < 0.25f);
+    }
+
+    /* logic-bound profile: 25ms frames, 18ms inside */
+    ifps_budget_init(&b);
+    for (i = 0; i < 60; i++) ifps_budget_sample(&b, 25.0f, 18.0f);
+    {
+        float share = ifps_budget_update_share(&b);
+        CHECK("logic-bound share ~72%", share > 0.65f && share < 0.80f);
+    }
+
+    CHECK("implausible samples ignored",
+          (ifps_budget_init(&b), ifps_budget_sample(&b, 0.0f, 5.0f),
+           ifps_budget_sample(&b, 99999.0f, 5.0f), b.samples == 2 &&
+           b.frame_ema_ms < 0.0f));
+
+    printf("== force-test window ==\n");
+    CHECK("disabled when seconds=0", ifps_force_active(5000, 1000, 0) == 0);
+    CHECK("active inside window", ifps_force_active(5000, 1000, 10) == 1);
+    CHECK("inactive after window", ifps_force_active(11001, 1000, 10) == 0);
+    CHECK("boundary exact end", ifps_force_active(11000, 1000, 10) == 0);
+    CHECK("clock before attach safe", ifps_force_active(500, 1000, 10) == 0);
+}
+
 /* ------------------------------- config ---------------------------------- */
 
 static void test_config(void)
@@ -158,6 +200,14 @@ static void test_config(void)
                                   cfg.ground_impacts == 0);
     CHECK("ground_impacts=1", ifps_config_parse_line(&cfg, "ground_impacts=1") &&
                                   cfg.ground_impacts == 1);
+    CHECK("force_test default off", cfg.force_test == 0);
+    CHECK("force_test=10", ifps_config_parse_line(&cfg, "force_test=10") &&
+                               cfg.force_test == 10);
+    CHECK("force_test rejects negative",
+          ifps_config_parse_line(&cfg, "force_test=-5") && cfg.force_test == 10);
+    CHECK("status_interval default", cfg.status_interval == 5.0f);
+    CHECK("status_interval=2", ifps_config_parse_line(&cfg, "status_interval=2") &&
+                                   cfg.status_interval == 2.0f);
 
     f = fopen(tmp, "w");
     fprintf(f, "# IsaacFPS native test config\nshadows=always\n"
@@ -178,6 +228,7 @@ int main(void)
 {
     test_sigscan();
     test_adaptive();
+    test_budget();
     test_config();
     printf("\n%d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;

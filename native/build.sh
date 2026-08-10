@@ -25,14 +25,15 @@ TARGET="x86-windows-gnu" # isaac-ng.exe is a 32-bit process
 OUT=dist
 mkdir -p "$OUT"
 
-echo "[1/3] host unit tests (sigscan / adaptive / config)"
+echo "[1/3] host unit tests (sigscan / adaptive / budget / config)"
 cc -O2 -Wall -Wextra -o /tmp/ifps_native_tests tests/test_native.c \
-    src/sigscan.c src/adaptive.c src/config.c
+    src/sigscan.c src/adaptive.c src/budget.c src/config.c
 /tmp/ifps_native_tests
 
 echo "[2/3] isaacfps_native.dll (${TARGET})"
 $ZIGCC -target "$TARGET" -O2 -shared -o "$OUT/isaacfps_native.dll" \
-    src/dllmain.c src/hooks.c src/sigscan.c src/adaptive.c src/config.c \
+    src/dllmain.c src/hooks.c src/sigscan.c src/adaptive.c src/budget.c \
+    src/config.c \
     third_party/minhook/src/hook.c third_party/minhook/src/buffer.c \
     third_party/minhook/src/trampoline.c third_party/minhook/src/hde/hde32.c \
     -Ithird_party/minhook/include -Isrc

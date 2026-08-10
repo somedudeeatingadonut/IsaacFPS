@@ -53,6 +53,8 @@ shadows=adaptive         # adaptive | always | never
 target_fps=55            # below this -> consider the game lagging
 recover_fps=70           # above this -> consider headroom restored
 ground_impacts=1         # also skip ground-impact FX while shedding
+force_test=0             # seconds of forced shedding at inject (self-test)
+status_interval=5        # seconds between [status] log lines (0 = off)
 adaptive_fallback=never  # last resort if NO measurement source works
 log=1                    # write isaacfps_native.log
 ```
@@ -70,6 +72,13 @@ log=1                    # write isaacfps_native.log
   REPENTOGON present it measures lag via `Level::Update` instead.
 - **Uniqueness-enforced scanning:** signatures must match exactly once in the
   executable image, or the hook is refused.
+- **Self-diagnostics:**
+  - `force_test=N` sheds unconditionally for N seconds after inject — a
+    visual proof the hooks actually fire on your build.
+  - Periodic `[status]` log lines: smoothed frame time, time spent inside
+    the measured phase (`Level::Update` or `Game::Render`), shedding state,
+    live skip counters — so you can see whether the lag is logic/mod-Lua
+    bound (shedding can't help) or render-bound (shedding may).
 - **Conservative hook choice:** `RenderShadowLayer` returning `false` is a
   state the engine itself produces when an entity has no shadow; no memory is
   freed, no objects are faked, no caller contracts are broken.

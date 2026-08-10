@@ -12,6 +12,8 @@ void ifps_config_defaults(IfpsConfig *cfg)
     cfg->adaptive_fallback = IFPS_SHADOWS_NEVER;
     cfg->target_fps = 55.0f;
     cfg->recover_fps = 70.0f;
+    cfg->force_test = 0;
+    cfg->status_interval = 5.0f;
     cfg->log = 1;
 }
 
@@ -74,6 +76,12 @@ int ifps_config_parse_line(IfpsConfig *cfg, const char *line)
         cfg->log = parse_bool(val, cfg->log);
     } else if (!strcmp(key, "ground_impacts")) {
         cfg->ground_impacts = parse_bool(val, cfg->ground_impacts);
+    } else if (!strcmp(key, "force_test")) {
+        int v = atoi(val);
+        if (v >= 0 && v <= 300) cfg->force_test = v;
+    } else if (!strcmp(key, "status_interval")) {
+        float f = (float)atof(val);
+        if (f >= 0.0f && f <= 3600.0f) cfg->status_interval = f;
     } else if (!strcmp(key, "shadows")) {
         if (!strcmp(val, "adaptive")) cfg->shadows_mode = IFPS_SHADOWS_ADAPTIVE;
         else if (!strcmp(val, "always")) cfg->shadows_mode = IFPS_SHADOWS_ALWAYS;

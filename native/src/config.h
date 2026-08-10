@@ -24,6 +24,10 @@ typedef struct IfpsConfig {
                              _NEVER (default)                       */
     float target_fps;     /* lag threshold for adaptive (default 55) */
     float recover_fps;    /* headroom threshold (default 70)         */
+    int force_test;       /* seconds of forced shedding at attach, as a
+                             visual self-test of the hooks (default 0) */
+    float status_interval;/* seconds between periodic status log lines
+                             (default 5; 0 disables)                  */
     int log;              /* write isaacfps_native.log (default 1)   */
 } IfpsConfig;
 

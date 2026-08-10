@@ -18,9 +18,18 @@ shadows=adaptive
 target_fps=55
 recover_fps=70
 
-# Also skip ground-impact cosmetic effects (dust on landings/explosions)
-# while shedding. 0 disables that hook entirely.
+# Also skip ground-impact cosmetic FX while shedding (0 disables that hook).
 ground_impacts=1
+
+# Visual self-test: force-shed for this many seconds right after injecting.
+# Entity shadows should visibly disappear. If they don't, your game build
+# doesn't match the signatures. If they do but FPS is unchanged, cosmetic
+# shedding is not your bottleneck. 0 disables.
+force_test=15
+
+# Seconds between periodic status log lines (frame time, time spent inside
+# the measured phase, shedding state, skip counters). 0 disables.
+status_interval=5
 
 # What to do when NO frame measurement is available at all: always | never.
 # (With REPENTOGON present, IsaacFPS measures via Level::Update instead, so
