@@ -51,20 +51,23 @@ REPENTOGON is not a Lua mod. It is a native Windows component in four layers
 |---|---|
 | Injection | `isaacfps_injector.exe` (`CreateRemoteThread` + `LoadLibraryA`), plus `--eject` to unload and restore |
 | Hooking library | MinHook (MIT), the standard inline-hook library for x86 |
-| Signatures | Copied verbatim from REPENTOGON's published `.zhl` database for the current game build |
-| Hooks | `Entity::RenderShadowLayer` (skip decision), `Game::Render` (frame timing only) |
-| Brains | `adaptive.c`: frame-time EMA + hysteresis state machine deciding when to shed shadows |
+| Signatures | Copied verbatim from REPENTOGON's published `.zhl` database for the current game build; **must match exactly once** in the image or the hook is refused |
+| Hooks | `Entity::RenderShadowLayer` (shed), `Entity::DoGroundImpactEffects` (shed), and one measurement source |
+| Measurement | `Game::Render` when REPENTOGON is absent; `Level::Update` (30 Hz ticks, normalized) when REPENTOGON is present — hooks are never stacked on REPENTOGON-hooked functions |
+| Brains | `adaptive.c`: frame-time EMA + hysteresis state machine deciding when to shed |
 
-### Why entity shadows first
+### Why shadows + ground impacts first
 
-- **Cost:** every enemy, tear, projectile and pickup renders a shadow layer.
-  Tear-heavy rooms (synergy builds, Mom's Heart, Delirium) multiply that by
-  hundreds — exactly the "laggy areas" case.
-- **Safety:** the detour only ever returns `false`, a state the engine itself
-  produces when an entity has no shadow. It never fakes objects, frees memory,
-  or changes caller-visible state beyond that bool.
-- **Measurability:** adaptive mode means you get the visual game back the
-  moment FPS recovers, and the log records every toggle.
+- **Cost:** every enemy, tear, projectile and pickup renders a shadow layer,
+  and landings/explosions spawn ground-impact effect bursts. Tear-heavy
+  synergy rooms multiply both by hundreds — exactly the "laggy areas" case.
+- **Safety:** the shadow detour only ever returns `false`, a state the engine
+  itself produces when an entity has no shadow; the impact-FX detour either
+  skips a cosmetic void function or forwards to it untouched (the engine
+  passes `strength` in XMM3, which the detour never disturbs). No memory is
+  freed, no objects faked, no caller contracts broken.
+- **Measurability:** adaptive mode restores visuals the moment FPS recovers,
+  and the log records every toggle plus skip counters on eject.
 
 ## 3. Honest expectations
 
@@ -79,6 +82,26 @@ REPENTOGON is not a Lua mod. It is a native Windows component in four layers
   produced a general +50% engine patch, and REPENTOGON's own native
   optimizations are modest for the same reason. Treat claims otherwise with
   suspicion.
+
+## 3b. "Can the Lua be moved to another process / use my other RAM?"
+
+Short answer: no, and it wouldn't fix FPS anyway. Long answer:
+
+1. **Pointers.** Isaac's Lua VM is embedded in the 32-bit `isaac-ng.exe`.
+   Every object mods touch (`Entity`, `Sprite`, `Font`, `Room`, ...) is a
+   pointer into the game's own heap. A Lua VM running in a separate process
+   cannot dereference any of them — every API call and every callback would
+   need a full marshalling bridge reimplementing Isaac's entire API over IPC.
+2. **Synchrony.** The game calls mod callbacks *synchronously* inside its
+   frame loop. Blocking on cross-process round-trips tens of times per frame
+   would destroy frame pacing; making them async would break mod semantics
+   (mods rely on running between specific engine steps).
+3. **The ceiling isn't the bottleneck.** Low FPS in heavy areas is CPU-bound
+   work (callback logic + entity update/render submission), not RAM capacity.
+   Moving the VM buys address space at the cost of latency and marshalling
+   overhead — net slower. The only real "more memory" fixes are a 64-bit
+   process (none exists for this game) or reducing allocations in-process
+   (GC tuning/dedupe, which the Lua layer already does).
 
 ## 4. Safety model
 

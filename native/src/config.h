@@ -17,9 +17,11 @@ enum {
 typedef struct IfpsConfig {
     int enabled;          /* master switch (default 1)             */
     int shadows_mode;     /* one of IFPS_SHADOWS_*                 */
+    int ground_impacts;   /* skip DoGroundImpactEffects while shedding:
+                             1 = adaptive (default), 0 = never hook  */
     int adaptive_fallback;/* mode used when frame measurement is
-                             unavailable (e.g. REPENTOGON present):
-                             IFPS_SHADOWS_ALWAYS or _NEVER (default) */
+                             unavailable: IFPS_SHADOWS_ALWAYS or
+                             _NEVER (default)                       */
     float target_fps;     /* lag threshold for adaptive (default 55) */
     float recover_fps;    /* headroom threshold (default 70)         */
     int log;              /* write isaacfps_native.log (default 1)   */

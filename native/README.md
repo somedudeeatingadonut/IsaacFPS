@@ -6,13 +6,21 @@ scanning + inline hooking), built as a small, single-purpose tool.
 
 What it does today:
 
-- **Adaptive entity-shadow shedding.** Entity shadows (enemies, tears,
-  projectiles, pickups) are skipped automatically *only while the game is
-  actually lagging* (frame-time based, with hysteresis), and restored when
-  there is headroom again. In tear-heavy synergy rooms shadows are a large
-  share of the render cost. Modes: `adaptive` (default), `always`, `never`.
-- **Native frame-time measurement** via a `Game::Render` hook (installed only
-  when REPENTOGON is absent — it already hooks that function).
+- **Adaptive cosmetic-render shedding.** While the game is actually lagging
+  (frame-time based, with hysteresis) it skips:
+  - entity shadow layers (enemies, tears, projectiles, pickups — huge in
+    tear-heavy synergy rooms),
+  - ground-impact cosmetic effects (`DoGroundImpactEffects`).
+  Everything is restored automatically when headroom returns. Modes:
+  `adaptive` (default), `always`, `never`.
+- **Native frame-time measurement**, source chosen automatically:
+  `Game::Render` (one sample per rendered frame) when REPENTOGON is absent,
+  `Level::Update` (30 Hz logic ticks, normalized to frame equivalents) when
+  REPENTOGON is present, since REPENTOGON already hooks `Game::Render` and
+  hooks must never be stacked.
+- **Uniqueness-enforced signature scanning:** a signature must match exactly
+  once in the executable image or the hook is refused (no guessing on short
+  signatures).
 
 Everything is signature-verified and reversible. See `../docs/NATIVE_PATH.md`
 for the full technical writeup, honest expectations, and how to extend it.
@@ -44,8 +52,8 @@ enabled=1                # master switch
 shadows=adaptive         # adaptive | always | never
 target_fps=55            # below this -> consider the game lagging
 recover_fps=70           # above this -> consider headroom restored
-adaptive_fallback=never  # used when frame measurement is unavailable
-                         # (e.g. REPENTOGON present): always | never
+ground_impacts=1         # also skip ground-impact FX while shedding
+adaptive_fallback=never  # last resort if NO measurement source works
 log=1                    # write isaacfps_native.log
 ```
 
@@ -57,7 +65,11 @@ log=1                    # write isaacfps_native.log
   hooking. If signatures don't match (game updated), **zero hooks install**
   and the game runs unmodified — the log tells you so.
 - **Kill switch:** `isaacfps_native.off` file, or `enabled=0`.
-- **REPENTOGON-aware:** it never stacks a second hook on `Game::Render`.
+- **REPENTOGON-aware:** it never stacks a hook on any function REPENTOGON
+  already hooks (`Game::Render`, `Room::RenderEntityLight`, ...); with
+  REPENTOGON present it measures lag via `Level::Update` instead.
+- **Uniqueness-enforced scanning:** signatures must match exactly once in the
+  executable image, or the hook is refused.
 - **Conservative hook choice:** `RenderShadowLayer` returning `false` is a
   state the engine itself produces when an entity has no shadow; no memory is
   freed, no objects are faked, no caller contracts are broken.

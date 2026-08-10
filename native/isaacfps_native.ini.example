@@ -18,8 +18,13 @@ shadows=adaptive
 target_fps=55
 recover_fps=70
 
-# What to do when frame measurement is unavailable (REPENTOGON present hooks
-# Game::Render itself, so IsaacFPS defers to it): always | never
+# Also skip ground-impact cosmetic effects (dust on landings/explosions)
+# while shedding. 0 disables that hook entirely.
+ground_impacts=1
+
+# What to do when NO frame measurement is available at all: always | never.
+# (With REPENTOGON present, IsaacFPS measures via Level::Update instead, so
+# adaptive normally still works; this is only the last-resort fallback.)
 adaptive_fallback=never
 
 # Write isaacfps_native.log next to the DLL.

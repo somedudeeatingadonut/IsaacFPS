@@ -65,7 +65,7 @@ static void test_adaptive(void)
     printf("== adaptive controller ==\n");
     /* target 55 fps (18.2 ms), recover 70 fps (14.3 ms),
        30 frames to enter, 60 frames to exit */
-    ifps_adaptive_init(&a, 55.0f, 70.0f, 30, 60);
+    ifps_adaptive_init(&a, 55.0f, 70.0f, 30, 60, 1.0f);
     CHECK("starts with shadows on", a.shadows_off == 0);
 
     /* 25 ms frames (40 fps): should shed after ~30 frames */
@@ -87,7 +87,7 @@ static void test_adaptive(void)
 
     /* in-between frame time (16 ms = 62.5 fps): between target and recover
        thresholds, so whichever state we're in, we stay there */
-    ifps_adaptive_init(&a, 55.0f, 70.0f, 5, 5);
+    ifps_adaptive_init(&a, 55.0f, 70.0f, 5, 5, 1.0f);
     for (i = 0; i < 100; i++) ifps_adaptive_frame(&a, 16.0f);
     CHECK("no oscillation in hysteresis band (from below)",
           a.shadows_off == 0);
@@ -98,16 +98,25 @@ static void test_adaptive(void)
           a.shadows_off == 1);
 
     /* implausible samples ignored */
-    ifps_adaptive_init(&a, 55.0f, 70.0f, 1, 1);
+    ifps_adaptive_init(&a, 55.0f, 70.0f, 1, 1, 1.0f);
     ifps_adaptive_frame(&a, 0.0f);
     ifps_adaptive_frame(&a, -5.0f);
     ifps_adaptive_frame(&a, 99999.0f);
     CHECK("implausible samples ignored", a.frames_seen == 0);
 
     /* EMA tracks quickly */
-    ifps_adaptive_init(&a, 55.0f, 70.0f, 30, 60);
+    ifps_adaptive_init(&a, 55.0f, 70.0f, 30, 60, 1.0f);
     for (i = 0; i < 60; i++) ifps_adaptive_frame(&a, 25.0f);
     CHECK("ema converges to sample", a.ema_ms > 24.0f && a.ema_ms < 26.0f);
+
+    /* tick_scale=0.5: 30Hz logic-tick source (Level::Update) normalized to
+       60fps frame equivalents */
+    ifps_adaptive_init(&a, 55.0f, 70.0f, 5, 5, 0.5f);
+    for (i = 0; i < 30; i++) ifps_adaptive_frame(&a, 33.4f); /* healthy 30Hz */
+    CHECK("healthy 30Hz ticks read as ~60fps (no shed)", a.shadows_off == 0 &&
+          a.ema_ms > 16.0f && a.ema_ms < 17.5f);
+    for (i = 0; i < 30; i++) ifps_adaptive_frame(&a, 50.0f); /* lagging ticks */
+    CHECK("lagging 30Hz ticks trigger shed", a.shadows_off == 1);
 }
 
 /* ------------------------------- config ---------------------------------- */
@@ -144,6 +153,11 @@ static void test_config(void)
     CHECK("adaptive_fallback=always",
           ifps_config_parse_line(&cfg, "adaptive_fallback=always") &&
               cfg.adaptive_fallback == IFPS_SHADOWS_ALWAYS);
+    CHECK("ground_impacts default on", cfg.ground_impacts == 1);
+    CHECK("ground_impacts=0", ifps_config_parse_line(&cfg, "ground_impacts=0") &&
+                                  cfg.ground_impacts == 0);
+    CHECK("ground_impacts=1", ifps_config_parse_line(&cfg, "ground_impacts=1") &&
+                                  cfg.ground_impacts == 1);
 
     f = fopen(tmp, "w");
     fprintf(f, "# IsaacFPS native test config\nshadows=always\n"

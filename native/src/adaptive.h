@@ -18,6 +18,9 @@ extern "C" {
 typedef struct IfpsAdaptive {
     float target_ms;    /* smoothed frame time above this = "lagging"    */
     float recover_ms;   /* smoothed frame time below this = "headroom"  */
+    float tick_scale;   /* sample multiplier: 1.0 for render-frame source,
+                           0.5 for 30Hz logic-tick source (Level::Update),
+                           normalizing both to 60fps-frame equivalents    */
     int enter_frames;   /* consecutive lagging frames before shedding   */
     int exit_frames;    /* consecutive headroom frames before restoring */
 
@@ -29,10 +32,11 @@ typedef struct IfpsAdaptive {
 } IfpsAdaptive;
 
 void ifps_adaptive_init(IfpsAdaptive *a, float target_fps, float recover_fps,
-                        int enter_frames, int exit_frames);
+                        int enter_frames, int exit_frames, float tick_scale);
 
-/* Feed one frame-time sample (milliseconds). Ignores implausible values. */
-void ifps_adaptive_frame(IfpsAdaptive *a, float frame_ms);
+/* Feed one sample (milliseconds, in the source's native cadence; it is
+ * scaled by tick_scale). Ignores implausible values. */
+void ifps_adaptive_frame(IfpsAdaptive *a, float sample_ms);
 
 #ifdef __cplusplus
 }
