@@ -6,15 +6,20 @@
 
 Reduces stutter and wasted work when many mods are loaded:
 - GC tuning (fewer garbage-collection hitches from heavy Lua mods)
-- Sound spam dedupe (SFXManager():Play wrapper)
+- Sound spam dedupe (native REPENTOGON MC_PRE_SFX_PLAY hook when available,
+  SFXManager wrapper otherwise)
 - Debug log spam filter (Isaac.DebugString rate limiting)
 - Overlay freezing while paused
 - Throttled render/update callback library with automatic detail scaling
 - Shared Font cache and per-frame memoization cache
 - Built-in diagnostics: FPS overlay, fpsbench() benchmark, frame spike report
 
+Optional REPENTOGON integration (repentogon.com): ImGui performance dashboard
+with frame time and memory graphs, registered console commands with tab
+completion and macros, nanosecond frame timing, and GC-awareness. Everything
+works without REPENTOGON too.
+
 Type fpshelp() in the debug console for all commands.
-Works standalone, requires no other mods. Designed for Repentance.
     </description>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
 </metadata>

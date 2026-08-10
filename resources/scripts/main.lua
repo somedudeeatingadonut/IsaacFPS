@@ -1,5 +1,5 @@
 -- ===========================================================================
---  IsaacFPS  v1.0.0
+--  IsaacFPS  v1.1.0
 --  FPS booster and performance toolkit for The Binding of Isaac: Repentance.
 --
 --  Designed for big mod collections. Modules:
@@ -8,13 +8,16 @@
 --    isaacfps/gc.lua           garbage collector tuning
 --    isaacfps/throttle.lua     throttled render/update callbacks + detail scale
 --    isaacfps/cache.lua        memoization + shared Font cache
---    isaacfps/audio.lua        SFXManager():Play spam dedupe
+--    isaacfps/audio.lua        sound spam dedupe (native or wrapper)
 --    isaacfps/debugfilter.lua  Isaac.DebugString spam filter
 --    isaacfps/overlay.lua      FPS/stats overlay
 --    isaacfps/spikes.lua       frame spike recorder (fpsreport)
 --    isaacfps/autotune.lua     automatic detail scaling
 --    isaacfps/bench.lua        fpsbench() benchmark
 --    isaacfps/commands.lua     debug console commands (fpshelp, fps, ...)
+--    isaacfps/repentogon.lua   optional REPENTOGON integration (detects it:
+--                              native sfx hook, console API, ImGui dashboard,
+--                              nanosecond timing, GC awareness)
 -- ===========================================================================
 
 if IsaacFPS and IsaacFPS.Loaded then
@@ -22,7 +25,7 @@ if IsaacFPS and IsaacFPS.Loaded then
     return
 end
 
-local MOD_VERSION = "1.0.0"
+local MOD_VERSION = "1.1.0"
 local mod = RegisterMod("IsaacFPS", 1)
 
 local I = {
@@ -37,7 +40,15 @@ local I = {
 }
 _G.IsaacFPS = I
 
--- Load order matters: util and config first, everything else after.
+-- Callback enum resolution: Repentance uses ModCallbacks.MC_*, older ports
+-- used ModCallback.*; fall back to raw numeric ids if all else fails.
+local MC = ModCallbacks or ModCallback or {}
+local CB_POST_UPDATE    = MC.MC_POST_UPDATE    or MC.POST_UPDATE    or 1
+local CB_POST_RENDER    = MC.MC_POST_RENDER    or MC.POST_RENDER    or 2
+local CB_PRE_GAME_EXIT  = MC.MC_PRE_GAME_EXIT  or MC.PRE_GAME_EXIT
+
+-- Load order matters: util and config first, repentogon last (its detection
+-- must finish before the boot section applies settings below).
 include("isaacfps/util.lua")
 include("isaacfps/config.lua")
 include("isaacfps/gc.lua")
@@ -50,6 +61,7 @@ include("isaacfps/spikes.lua")
 include("isaacfps/autotune.lua")
 include("isaacfps/bench.lua")
 include("isaacfps/commands.lua")
+include("isaacfps/repentogon.lua")
 
 local U = I.Util
 
@@ -57,6 +69,7 @@ local U = I.Util
 -- Settings changes apply live.
 -- ---------------------------------------------------------------------------
 I.Config.Watchers.audioDedupe = function(v)
+    if I.Audio.Native then return end -- the native hook checks the setting live
     if v then I.Audio.Patch() else I.Audio.Unpatch() end
 end
 I.Config.Watchers.debugFilter = function(v)
@@ -78,10 +91,19 @@ U.Try("gc init", function()
     I.GC.Apply(I.Config.Get("gcProfile"))
 end)
 U.Try("audio init", function()
-    if I.Config.Get("audioDedupe") then I.Audio.Patch() end
+    if I.Config.Get("audioDedupe") then
+        local nativeOk = I.RG.HasPreSfxCallback and I.Audio.PatchNative()
+        if not nativeOk then
+            I.Audio.Patch()
+        end
+    end
 end)
 U.Try("debug filter init", function()
     if I.Config.Get("debugFilter") then I.DebugFilter.Patch() end
+end)
+U.Try("repentogon ui init", function()
+    I.RG.InitConsole()
+    I.RG.InitImGui()
 end)
 
 -- ---------------------------------------------------------------------------
@@ -93,7 +115,7 @@ local lastRenderMs = nil
 
 local function onRender()
     U.Try("render loop", function()
-        local now = Isaac.GetTime()
+        local now = U.MsNow()
 
         -- Frame time accounting + spike detection.
         if lastRenderMs then
@@ -145,11 +167,11 @@ local function onUpdate()
     end)
 end
 
-mod:AddCallback(ModCallback.POST_RENDER, onRender)
-mod:AddCallback(ModCallback.POST_UPDATE, onUpdate)
+mod:AddCallback(CB_POST_RENDER, onRender)
+mod:AddCallback(CB_POST_UPDATE, onUpdate)
 
-if ModCallback.PRE_GAME_EXIT then
-    mod:AddCallback(ModCallback.PRE_GAME_EXIT, function()
+if CB_PRE_GAME_EXIT then
+    mod:AddCallback(CB_PRE_GAME_EXIT, function()
         U.Try("save on exit", function() I.Config.Save() end)
         U.Try("gc on exit", function()
             if type(collectgarbage) == "function" then
@@ -159,9 +181,12 @@ if ModCallback.PRE_GAME_EXIT then
     end)
 end
 
-Isaac.Console("[IsaacFPS] v" .. MOD_VERSION .. " loaded. Type fpshelp() in the debug console.")
+Isaac.Console("[IsaacFPS] v" .. MOD_VERSION .. " loaded"
+    .. (I.RG.Active and (" (REPENTOGON " .. tostring(I.RG.Version) .. " detected)") or "")
+    .. ". Type fpshelp() in the debug console.")
 U.Log("Initialized: overlay=" .. tostring(I.Config.Get("overlay"))
     .. " audioDedupe=" .. tostring(I.Config.Get("audioDedupe"))
+    .. (I.Audio.Native and " (native hook)" or "")
     .. " debugFilter=" .. tostring(I.Config.Get("debugFilter"))
     .. " gcProfile=" .. tostring(I.Config.Get("gcProfile"))
     .. " autoTune=" .. tostring(I.Config.Get("autoTune")))

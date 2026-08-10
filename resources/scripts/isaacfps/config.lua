@@ -35,6 +35,24 @@ Config.Defaults = {
 Config.Values = {}
 for k, v in pairs(Config.Defaults) do Config.Values[k] = v end
 
+-- Short per-key descriptions, used by the REPENTOGON console autocomplete.
+Config.Help = {
+    overlay        = "draw the FPS/stats overlay",
+    overlayCorner  = "overlay corner: tl, tr, bl or br",
+    overlayRefresh = "rebuild overlay text every N frames",
+    audioDedupe    = "drop duplicate/spammed sound plays",
+    dedupeWindow   = "frames during which identical sounds are dropped",
+    maxSoundsPerFrame = "cap of new sound starts per frame",
+    debugFilter    = "suppress repeated Isaac.DebugString calls",
+    debugWindow    = "frames during which repeated log lines are suppressed",
+    gcProfile      = "0 stock, 1 smooth, 2 aggressive",
+    freezeWhenPaused = "skip mod rendering while paused",
+    autoTune       = "automatic detail scaling when FPS drops",
+    targetFPS      = "what autoTune tries to keep",
+    spikeMs        = "frames longer than this are recorded as spikes",
+    keepSpikes     = "how many spikes to remember",
+}
+
 Config.Watchers = {} -- key -> function(newValue), called by Config.Set
 
 function Config.Serialize()

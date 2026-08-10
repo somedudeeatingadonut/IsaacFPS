@@ -54,8 +54,25 @@ function Util.Clamp(v, lo, hi)
     return v
 end
 
+-- Millisecond clock. Uses REPENTOGON's nanosecond timer when available
+-- (fractional precision), falls back to Isaac.GetTime() otherwise.
 function Util.MsNow()
+    if I.RG and I.RG.HasNanoTime then
+        return Isaac.GetNanoTime() / 1e6
+    end
     return Isaac.GetTime()
+end
+
+-- User-visible message: always to the console, plus a REPENTOGON ImGui
+-- notification when available.
+function Util.Notify(text)
+    pcall(Isaac.Console, text)
+    if I.RG and I.RG.HasImGui then
+        pcall(function()
+            local nt = (ImGuiNotificationType and ImGuiNotificationType.INFO) or 0
+            ImGui.PushNotification(text, nt, 5000)
+        end)
+    end
 end
 
 return Util

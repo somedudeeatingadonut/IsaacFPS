@@ -41,14 +41,14 @@ function AutoTune.Tick()
 
     if lowChecks >= 2 and cooldown == 0 and I.State.detail < 3 then
         I.SetDetail(I.State.detail + 1)
-        Isaac.Console(string.format(
+        U.Notify(string.format(
             "[IsaacFPS] running below %d fps -> detail scale raised to x%d (mod overlays refresh less often).",
             target, I.State.detail))
         lowChecks = 0
         cooldown = 4
     elseif highChecks >= 5 and cooldown == 0 and I.State.detail > 1 then
         I.SetDetail(I.State.detail - 1)
-        Isaac.Console(string.format(
+        U.Notify(string.format(
             "[IsaacFPS] headroom restored -> detail scale back to x%d.",
             I.State.detail))
         highChecks = 0

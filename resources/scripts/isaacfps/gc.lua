@@ -45,6 +45,13 @@ function GC.Apply(profile)
         return
     end
 
+    if profile == 1 and I.RG and I.RG.Active then
+        -- REPENTOGON already runs Lua 5.4's generational GC by default,
+        -- which is better than anything we would configure here. Leave it.
+        U.Log("GC profile: smooth requested, but REPENTOGON's generational GC default is already optimal; leaving untouched.")
+        return
+    end
+
     if profile == 2 then
         if tryGC("generational", 20, 100) then
             U.Log("GC profile: generational (aggressive).")

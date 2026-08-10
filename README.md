@@ -6,6 +6,11 @@ on top of each other, tuning Lua's garbage collector, and giving mod authors a t
 library to make their own mods cheaper. No dependencies, no assets, nothing to
 configure unless you want to.
 
+**Optional [REPENTOGON](https://repentogon.com) integration** — when the REPENTOGON
+script extender is installed, IsaacFPS automatically upgrades itself (native sound
+hook, ImGui performance dashboard, real console commands, nanosecond timing). Without
+it, everything still works. See [below](#repentogon-integration-optional).
+
 ```
 [IsaacFPS] v1.0.0 loaded. Type fpshelp() in the debug console.
 ```
@@ -17,7 +22,7 @@ configure unless you want to.
 | Feature | What it fixes |
 |---|---|
 | **GC tuning** | Heavy mod packs allocate thousands of small Lua tables per frame. Isaac's stock garbage collector lets garbage pile up, then hitches when a big sweep finally runs. IsaacFPS switches Lua 5.4 to a smooth incremental profile (or a generational one) so collections become many tiny, invisible steps instead of frame-stopping sweeps. |
-| **Sound spam dedupe** | Wraps `SFXManager():Play` and drops a play if the exact same sound (same id + pitch) was started within the last 2 frames, or if more than 16 new sounds start in one frame. Very common in big packs: several mods re-playing the same tick/charge/menu blip every frame. Looped and delayed sounds are never touched. |
+| **Sound spam dedupe** | Drops a play if the exact same sound (same id + pitch) was started within the last 2 frames, or if more than 16 new sounds start in one frame. Very common in big packs: several mods re-playing the same tick/charge/menu blip every frame. Looped and delayed sounds are never touched. Uses REPENTOGON's native `MC_PRE_SFX_PLAY` hook when available, otherwise a `SFXManager():Play` wrapper. |
 | **Debug log filter** | Rate-limits identical `Isaac.DebugString` calls. Every call is disk I/O into `log.txt`; mods that log every frame are quietly expensive. The first message passes, repeats are suppressed, and a single summary line is written. |
 | **Freeze when paused** | While the game is paused the screen is static, so IsaacFPS stops dispatching render tasks entirely. Pause menus in heavy packs become free. |
 | **Throttled callbacks + auto detail scaling** | Mods can register render/update work through IsaacFPS to run every Nth frame (offsets spread across frames). When your FPS drops below `targetFPS`, IsaacFPS automatically raises a global *detail scale* (x2, x3): registered overlays refresh less often, the sound-dedupe window widens, etc. When headroom returns, it scales back down. |
@@ -27,6 +32,26 @@ configure unless you want to.
 Everything is wrapped in `pcall`, every patch can be undone live, and the mod registers
 exactly two game callbacks — a performance mod must never become the source of lag or
 error popups itself.
+
+## REPENTOGON integration (optional)
+
+[REPENTOGON](https://repentogon.com) is a script extender that hooks the game's C++
+internals and already ships its own performance work (most notably: it runs Lua 5.4's
+**generational garbage collector by default** and isolates mod callback errors). If it
+is installed, IsaacFPS detects it at startup and upgrades itself:
+
+| Upgrade | What it does |
+|---|---|
+| **Native sound dedupe** | Dedupe runs through the `MC_PRE_SFX_PLAY` callback — a real game hook that cancels duplicate sounds before they start, instead of a metatable patch around `SFXManager():Play`. |
+| **ImGui performance dashboard** | An "IsaacFPS" menu in the REPENTOGON bar (open with the debug-console key, `~`): live **frame-time graph** (last 120 frames), **Lua memory graph**, status line (FPS, detail scale, entity count, dedupe mode), spike counter, benchmark buttons — plus a Settings window with checkboxes/sliders for every IsaacFPS option. |
+| **Proper console commands** | All `fps*` commands are registered with `Console.RegisterCommand` (they appear in autocomplete and `help`), no-arg ones become **macros** (type just `fps`), and `fpsset`/`fpsget` get **tab completion of setting keys with descriptions**. |
+| **Nanosecond timing** | Frame-time EMA, the benchmark and spike recorder use `Isaac.GetNanoTime()` for sub-millisecond precision instead of the whole-millisecond game clock. |
+| **GC awareness** | Profile 1 ("smooth") detects REPENTOGON's generational-GC default and **leaves it untouched** — overriding it with incremental settings would be a downgrade. Profile 2 still forces generational explicitly if you want the paused-time maintenance sweeps. |
+| **Notifications** | AutoTune detail changes show up as ImGui notifications as well as console lines. |
+| **Late init** | Uses `MC_POST_MODS_LOADED` to print a summary once every mod is loaded. |
+
+Everything is feature-detected and wrapped in `pcall`: a missing or partial
+REPENTOGON install just falls back to the vanilla implementations.
 
 ## About the RAM question
 
@@ -87,7 +112,7 @@ All settings persist in the mod's save data. Change with `fpsset(key, value)`.
 | `maxSoundsPerFrame` | `16` | cap of new sound starts per frame |
 | `debugFilter` | `true` | debug log spam filter |
 | `debugWindow` | `120` | frames during which repeated log lines are suppressed |
-| `gcProfile` | `1` | `0` stock · `1` smooth (incremental) · `2` aggressive (generational + paused sweeps) |
+| `gcProfile` | `1` | `0` stock · `1` smooth (incremental; defers to REPENTOGON's generational default when it is installed) · `2` aggressive (generational + paused sweeps) |
 | `freezeWhenPaused` | `true` | skip rendering while paused |
 | `autoTune` | `true` | automatic detail scaling |
 | `targetFPS` | `60` | what autoTune tries to keep |
@@ -126,6 +151,10 @@ Other API: `IsaacFPS.AddUpdate(fn, interval)` (logic, runs with game updates),
 
 - Targets **Repentance** (Lua 5.4); the code avoids newer syntax and feature-detects
   GC modes, so it degrades gracefully elsewhere.
+- Fully compatible with **REPENTOGON** (recommended for big mod collections — install
+  it from [repentogon.com](https://repentogon.com)); IsaacFPS uses it when present and
+  never requires it. Also plays nice with LuaJIT-migration plans since no 5.4-only
+  syntax is used.
 - Patches (`SFXManager().Play`, `Isaac.DebugString`) are applied through the class
   metatable, chain cleanly with other wrapping mods, and are restored exactly when you
   disable the corresponding setting (`fpsset('audioDedupe', false)`).
@@ -139,7 +168,7 @@ Other API: `IsaacFPS.AddUpdate(fn, interval)` (logic, runs with game updates),
 ```
 metadata.xml                     Repentance mod metadata
 resources/scripts/main.lua       loader + frame loops
-resources/scripts/isaacfps/      modules (config, gc, audio, overlay, ...)
+resources/scripts/isaacfps/      modules (config, gc, audio, overlay, repentogon, ...)
 tools/smoketest.py               dev-only: runs the mod against a stubbed Isaac API
 ```
 
@@ -147,7 +176,7 @@ tools/smoketest.py               dev-only: runs the mod against a stubbed Isaac 
 
 ```bash
 pip install lupa
-python3 tools/smoketest.py     # 46 assertions over every feature
+python3 tools/smoketest.py     # 95 assertions, two scenarios (vanilla + REPENTOGON)
 ```
 
 ## License

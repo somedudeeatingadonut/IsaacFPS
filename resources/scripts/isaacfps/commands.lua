@@ -20,6 +20,9 @@ local HELP = {
     "  fpsbench(seconds)  benchmark the next N seconds (default 5)",
     "  fpsreport()        show recorded frame spikes",
     "  fpsmem()           Lua memory report + full GC sweep",
+    "With REPENTOGON these are also registered commands/macros with tab",
+    "completion, and the 'IsaacFPS' menu in the ImGui bar has a live",
+    "performance dashboard and settings UI.",
 }
 
 function _G.fpshelp()
@@ -83,6 +86,14 @@ function _G.fps()
     end
     if s.entityCount then
         Isaac.Console("  entities in room: " .. s.entityCount)
+    end
+    Isaac.Console("  sound dedupe: "
+        .. (I.Audio.Native and "native REPENTOGON hook"
+            or (I.Audio.Patched and "wrapper" or "off")))
+    if I.RG and I.RG.Active then
+        Isaac.Console("  REPENTOGON: v" .. tostring(I.RG.Version)
+            .. (I.RG.HasNanoTime and " | nanosecond timing" or "")
+            .. (I.RG.HasImGui and " | ImGui dashboard" or ""))
     end
     Isaac.Console("  type fpshelp() for all commands")
 end

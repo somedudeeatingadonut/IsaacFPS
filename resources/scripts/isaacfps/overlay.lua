@@ -17,7 +17,8 @@ local function gatherStats()
     local s = I.State
     local lines = {}
     local fps = (s.emaMs and s.emaMs > 0) and (1000 / s.emaMs) or 0
-    lines[1] = string.format("FPS %.0f  (%.1f ms)", fps, s.emaMs or 0)
+    local rgTag = (I.RG and I.RG.Active) and "  +RG" or ""
+    lines[1] = string.format("FPS %.0f  (%.1f ms)%s", fps, s.emaMs or 0, rgTag)
 
     local l2 = ""
     if s.entityCount then

@@ -40,8 +40,8 @@ local function finish()
     end
 
     Isaac.Console(string.format(
-        "IsaacFPS bench (%.1fs, %d frames): avg %.1f fps | 1%% low %.1f fps | worst frame %.0f ms",
-        (Isaac.GetTime() - s.startTime) / 1000, n,
+        "IsaacFPS bench (%.1fs, %d frames): avg %.1f fps | 1%% low %.1f fps | worst frame %.1f ms",
+        (U.MsNow() - s.startTime) / 1000, n,
         1000 / avgMs, 1000 / (lowSum / lowCount), s.deltas[n]))
 
     local memNow = I.GC.MemoryKB()
@@ -54,7 +54,7 @@ end
 local function sample()
     if not state then return end
     local s = state
-    local now = Isaac.GetTime()
+    local now = U.MsNow()
     if s.lastT then
         local d = now - s.lastT
         if d >= 0 and d < 5000 then
@@ -74,7 +74,7 @@ function Bench.Run(seconds)
     end
     seconds = math.max(1, math.min(60, tonumber(seconds) or 5))
     state = {
-        startTime = Isaac.GetTime(),
+        startTime = U.MsNow(),
         duration = seconds * 1000,
         deltas = {},
         lastT = nil,

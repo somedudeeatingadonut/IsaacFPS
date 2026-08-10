@@ -16,7 +16,7 @@ local spikes = {}
 function Spikes.Record(deltaMs)
     local entry = {
         ms = deltaMs,
-        time = Isaac.GetTime(),
+        time = U.MsNow(),
         stage = nil,
         ents = I.State.entityCount,
         mem = I.GC.MemoryKB(),
